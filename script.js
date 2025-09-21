@@ -1,52 +1,10 @@
-
-// Initialize the application when the window loads
-window.onload = async function() {
-    try {
-        // Display loading message
-        const resultElement = document.getElementById('result');
-        resultElement.textContent = "Loading movie data...";
-        resultElement.className = 'loading';
-        
-        // Load data
-        await loadData();
-        
-        // Populate dropdown and update status
-        populateMoviesDropdown();
-        resultElement.textContent = "Data loaded. Please select a movie.";
-        resultElement.className = 'success';
-    } catch (error) {
-        console.error('Initialization error:', error);
-        // Error message already set in data.js
-    }
-};
-
-// Populate the movies dropdown with sorted movie titles
-function populateMoviesDropdown() {
-    const selectElement = document.getElementById('movie-select');
-    
-    // Clear existing options except the first placeholder
-    while (selectElement.options.length > 1) {
-        selectElement.remove(1);
-    }
-    
-    // Sort movies alphabetically by title
-    const sortedMovies = [...movies].sort((a, b) => a.title.localeCompare(b.title));
-    
-    // Add movies to dropdown
-    sortedMovies.forEach(movie => {
-        const option = document.createElement('option');
-        option.value = movie.id;
-        option.textContent = movie.title;
-        selectElement.appendChild(option);
-    });
-}
-
 // Main recommendation function
 function getRecommendations() {
     const resultElement = document.getElementById('result');
+    const recommendationsContainer = document.getElementById('recommendations');
+    recommendationsContainer.innerHTML = ""; // clear old cards
     
     try {
-        // Step 1: Get user input
         const selectElement = document.getElementById('movie-select');
         const selectedMovieId = parseInt(selectElement.value);
         
@@ -56,7 +14,6 @@ function getRecommendations() {
             return;
         }
         
-        // Step 2: Find the liked movie
         const likedMovie = movies.find(movie => movie.id === selectedMovieId);
         if (!likedMovie) {
             resultElement.textContent = "Error: Selected movie not found in database.";
@@ -64,46 +21,49 @@ function getRecommendations() {
             return;
         }
         
-        // Show loading message while processing
-        resultElement.textContent = "Calculating recommendations...";
+        resultElement.textContent = "Calculating recommendations using Cosine similarity...";
         resultElement.className = 'loading';
         
-        // Use setTimeout to allow the UI to update before heavy computation
         setTimeout(() => {
             try {
-                // Step 3: Prepare for similarity calculation
                 const likedGenres = new Set(likedMovie.genres);
                 const candidateMovies = movies.filter(movie => movie.id !== likedMovie.id);
                 
-                // Step 4: Calculate Cosine similarity scores
+                // Cosine similarity scores
                 const scoredMovies = candidateMovies.map(candidate => {
                     const candidateGenres = new Set(candidate.genres);
-                    
-                    // Calculate intersection size
                     const intersectionSize = [...likedGenres].filter(genre => candidateGenres.has(genre)).length;
-                    
-                    // Cosine similarity = |A ∩ B| / sqrt(|A| * |B|)
                     const score = (likedGenres.size > 0 && candidateGenres.size > 0)
                         ? intersectionSize / Math.sqrt(likedGenres.size * candidateGenres.size)
                         : 0;
-                    
                     return {
                         ...candidate,
                         score: score
                     };
                 });
                 
-                // Step 5: Sort by score in descending order
+                // Sort and take top 5
                 scoredMovies.sort((a, b) => b.score - a.score);
+                const topRecommendations = scoredMovies.slice(0, 5);
                 
-                // Step 6: Select top recommendations
-                const topRecommendations = scoredMovies.slice(0, 2);
-                
-                // Step 7: Display results
                 if (topRecommendations.length > 0) {
-                    const recommendationTitles = topRecommendations.map(movie => movie.title);
-                    resultElement.textContent = `Because you liked "${likedMovie.title}", we recommend: ${recommendationTitles.join(', ')}`;
+                    resultElement.textContent = `Because you liked "${likedMovie.title}", here are some recommendations:`;
                     resultElement.className = 'success';
+                    
+                    // Generate cards
+                    topRecommendations.forEach(movie => {
+                        const percentage = Math.round(movie.score * 100);
+                        const card = document.createElement('div');
+                        card.className = 'recommendation-card';
+                        card.innerHTML = `
+                            <span class="emoji">🎬</span>
+                            <div class="info">
+                                <h3>${movie.title}</h3>
+                                <p>Similarity: ${percentage}%</p>
+                            </div>
+                        `;
+                        recommendationsContainer.appendChild(card);
+                    });
                 } else {
                     resultElement.textContent = `No recommendations found for "${likedMovie.title}".`;
                     resultElement.className = 'error';

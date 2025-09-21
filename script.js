@@ -117,7 +117,6 @@ function getRecommendations() {
                         <span class="emoji">🎬</span>
                         <div class="info">
                             <h3>${movie.title}</h3>
-                            <p>Similarity: ${percentage}%</p>
                         </div>
                     `;
                     recommendationsContainer.appendChild(card);
